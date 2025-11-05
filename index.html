@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rey de Diamantes - King of Diamonds</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Pantalla de bienvenida/lobby -->
+        <div id="lobby-screen" class="screen active">
+            <div class="game-title">
+                <h1>♦ REY DE DIAMANTES ♦</h1>
+                <p class="subtitle">Un juego de estrategia y predicción</p>
+            </div>
+            
+            <div class="lobby-content">
+                <div class="join-section">
+                    <input type="text" id="player-name" placeholder="Ingresa tu nombre" maxlength="20" autocomplete="off">
+                    <button id="join-btn" class="primary-btn">UNIRSE AL JUEGO</button>
+                </div>
+                
+                <div class="players-waiting">
+                    <h2>Jugadores en sala: <span id="player-count">0</span>/5</h2>
+                    <div id="players-list" class="players-grid"></div>
+                </div>
+                
+                <div id="waiting-message" class="info-message" style="display: none;">
+                    Esperando a más jugadores...
+                </div>
+            </div>
+        </div>
+
+        <!-- Pantalla de instrucciones -->
+        <div id="instructions-screen" class="screen">
+            <div class="instructions-content">
+                <h1>♦ INSTRUCCIONES ♦</h1>
+                <div class="rules">
+                    <p>Cada jugador debe elegir un número entre <strong>0 y 100</strong>.</p>
+                    <p>El número ganador será el <strong>promedio de todos los números multiplicado por 0.8</strong>.</p>
+                    <p>El jugador cuyo número esté <strong>más cercano al objetivo</strong> gana.</p>
+                    <p class="warning">¡Piensa estratégicamente! ¿Qué número crees que elegirán los demás?</p>
+                </div>
+                <button id="start-game-btn" class="primary-btn">COMENZAR JUEGO</button>
+            </div>
+        </div>
+
+        <!-- Pantalla del juego -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <h2>♦ ELIGE TU NÚMERO ♦</h2>
+                <div id="timer-display" class="timer">Tiempo restante: <span id="timer">30</span>s</div>
+            </div>
+            
+            <div class="game-content">
+                <div class="number-input-section">
+                    <input type="number" id="number-input" min="0" max="100" placeholder="0-100" autocomplete="off">
+                    <button id="submit-number-btn" class="primary-btn">CONFIRMAR ELECCIÓN</button>
+                </div>
+                
+                <div class="players-status">
+                    <h3>Estado de los jugadores:</h3>
+                    <div id="players-status-list" class="players-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pantalla de resultados -->
+        <div id="results-screen" class="screen">
+            <div class="results-content">
+                <h1>♦ RESULTADOS ♦</h1>
+                
+                <div class="calculation-info">
+                    <p>Promedio de números: <span id="average">0</span></p>
+                    <p>Número objetivo (×0.8): <span id="target">0</span></p>
+                </div>
+                
+                <div class="winner-announcement">
+                    <h2 id="winner-text"></h2>
+                </div>
+                
+                <div class="all-results">
+                    <h3>Todos los jugadores:</h3>
+                    <div id="results-list" class="results-grid"></div>
+                </div>
+                
+                <button id="play-again-btn" class="primary-btn">JUGAR DE NUEVO</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <!-- Game Logic -->
+    <script src="game.js"></script>
+</body>
+</html>
