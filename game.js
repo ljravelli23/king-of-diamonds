@@ -1,4 +1,6 @@
 // Firebase Configuration
+// NOTE: These are DEMO credentials. Replace with your actual Firebase project credentials.
+// See firebase-config.md for setup instructions.
 const firebaseConfig = {
     apiKey: "AIzaSyDemoKey123456789",
     authDomain: "king-of-diamonds-demo.firebaseapp.com",
@@ -442,7 +444,7 @@ function handleStateChange(newState) {
 
 // Generate Player ID
 function generatePlayerId() {
-    return 'player_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+    return 'player_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
 }
 
 // Escape HTML
