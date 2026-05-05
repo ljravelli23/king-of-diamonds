@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rey de Diamantes | Alice in Borderland</title>
+    <link rel="stylesheet" href="index.css">
+    <style>
+        .number-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 5px;
+            max-width: 500px;
+            margin: 20px auto;
+        }
+        .number-btn {
+            padding: 10px 5px;
+            background: #1a1a1a;
+            border: 1px solid var(--border-glow);
+            color: white;
+            cursor: pointer;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .number-btn:hover {
+            background: var(--primary);
+            color: black;
+        }
+        .number-btn.selected {
+            background: var(--secondary);
+            color: black;
+            box-shadow: 0 0 10px var(--secondary);
+        }
+        .number-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .instructions-detail {
+            max-height: 400px;
+            overflow-y: auto;
+            text-align: left;
+            padding: 15px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--border-glow);
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        .rule-timer-box {
+            font-size: 1.5rem;
+            color: var(--secondary);
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Lobby -->
+        <div id="lobby-screen" class="screen active">
+            <h1 class="glitch-title">♦ REY DE DIAMANTES ♦</h1>
+            <p class="subtitle">ESTRATEGIA • PREDICCIÓN • SUPERVIVENCIA</p>
+            
+            <div class="input-group">
+                <input type="text" id="player-name" placeholder="Tu nombre" maxlength="15" autocomplete="off">
+                <div id="join-controls">
+                    <button id="create-room-btn" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;">CREAR SALA</button>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="room-id-input" placeholder="ID de Sala" style="flex: 1;">
+                        <button id="join-room-btn" class="btn btn-secondary">UNIRSE</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="lobby-status" class="hidden">
+                <div id="host-settings" class="hidden" style="margin-bottom: 2rem; border-bottom: 1px solid var(--border-glow); padding-bottom: 1.5rem;">
+                    <label class="subtitle" style="display: block; margin-bottom: 0.8rem; text-align: left;">CONFIGURACIÓN DEL HOST:</label>
+                    <select id="room-capacity" class="btn btn-secondary" style="width: 100%; background: #000;">
+                        <option value="2">2 JUGADORES</option>
+                        <option value="3">3 JUGADORES</option>
+                        <option value="4">4 JUGADORES</option>
+                        <option value="5" selected>5 JUGADORES</option>
+                    </select>
+                </div>
+
+                <div class="room-id-box" id="copy-room-id">
+                    <span>SALA: <strong id="current-room-id">...</strong></span>
+                    <small>Click para copiar link</small>
+                </div>
+                
+                <h3 style="margin-top: 2.5rem; letter-spacing: 2px;">CONCURSANTES: <span id="player-count">0</span>/<span id="max-players">5</span></h3>
+                <div id="players-list" class="players-grid" style="margin-top: 1.5rem;"></div>
+                
+                <button id="ready-btn" class="btn btn-primary hidden" style="width: 100%; margin-top: 3rem;">ESTOY LISTO</button>
+            </div>
+        </div>
+
+        <!-- Instrucciones -->
+        <div id="instructions-screen" class="screen">
+            <h1 class="glitch-title" style="font-size: 2.5rem;">REGLAS DEL JUEGO</h1>
+            <div id="rule-timer" class="rule-timer-box hidden">TIEMPO PARA LEER: 05:00</div>
+            <div class="instructions-detail" id="instructions-content">
+                <!-- Se llenará dinámicamente -->
+            </div>
+            <button id="start-game-btn" class="btn btn-primary" style="width: 100%;">COMENZAR PRUEBA</button>
+            <p id="client-wait-msg" class="subtitle hidden" style="color: var(--success); margin-top: 1rem;">ESPERANDO AL HOST PARA EMPEZAR...</p>
+        </div>
+
+        <!-- Juego Principal -->
+        <div id="game-screen" class="screen">
+            <div id="game-players-status" style="display: flex; justify-content: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;">
+                <!-- Barras de vida -->
+            </div>
+            
+            <div style="text-align: center;">
+                <div class="timer-box" id="timer">30</div>
+                <p id="game-round-info" class="subtitle" style="margin-top: 0.5rem; color: var(--primary);">RONDA 1</p>
+            </div>
+
+            <div class="number-selector" style="margin-top: 1rem;">
+                <h3 style="margin-bottom: 0.5rem; letter-spacing: 1px;">SELECCIONA TU NÚMERO (0-100)</h3>
+                <div id="number-grid" class="number-grid">
+                    <!-- Generado por JS -->
+                </div>
+                <button id="submit-number-btn" class="btn btn-primary" style="width: 250px; margin-top: 1rem;">CONFIRMAR ELECCIÓN</button>
+            </div>
+
+            <div id="waiting-opponent-game" class="subtitle hidden" style="margin-top: 2rem; color: var(--success);">
+                ELECCIÓN REGISTRADA. ESPERANDO A LOS DEMÁS...
+            </div>
+        </div>
+
+        <!-- Resultados -->
+        <div id="results-screen" class="screen">
+            <h1 class="glitch-title" style="font-size: 2.5rem;">RECUENTO</h1>
+            
+            <div class="winner-card" id="winner-announcement">
+                <h2 id="winner-text" style="color: var(--secondary);">¡RONDA FINALIZADA!</h2>
+            </div>
+
+            <div class="result-breakdown">
+                <div class="metric">
+                    <span>PROMEDIO</span>
+                    <span class="value" id="average-val">0</span>
+                </div>
+                <div class="metric">
+                    <span>OBJETIVO (×0.8)</span>
+                    <span class="value" id="target-val">0</span>
+                </div>
+                <div id="special-rule-triggered" class="subtitle" style="color: var(--primary); font-weight: bold; margin-top: 10px; font-size: 1.1rem;"></div>
+                <hr style="border: 0; border-top: 1px solid var(--border-glow); margin: 1.5rem 0;">
+                <div id="players-results-list" style="display: flex; flex-direction: column; gap: 0.8rem;"></div>
+            </div>
+            
+            <button id="next-round-btn" class="btn btn-primary" style="width: 100%;">SIGUIENTE RONDA</button>
+        </div>
+    </div>
+
+    <!-- PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
