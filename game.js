@@ -21,7 +21,7 @@ const ScreenMap = {
 // --- GLOBAL STATE ---
 let state = {
     me: { id: '', name: '', score: 0, choice: null, ready: false, isEliminated: false },
-    players: [], 
+    players: [],
     roomID: '',
     isHost: false,
     currentState: GameState.LOBBY,
@@ -60,18 +60,18 @@ const UI = {
     maxPlayers: document.getElementById('max-players'),
     readyBtn: document.getElementById('ready-btn'),
     copyRoomBtn: document.getElementById('copy-room-id'),
-    
+
     instructionsContent: document.getElementById('instructions-content'),
     ruleTimer: document.getElementById('rule-timer'),
     startGameBtn: document.getElementById('start-game-btn'),
     clientWaitMsg: document.getElementById('client-wait-msg'),
-    
+
     gamePlayersStatus: document.getElementById('game-players-status'),
     timer: document.getElementById('timer'),
     roundInfo: document.getElementById('game-round-info'),
     numberGrid: document.getElementById('number-grid'),
     submitBtn: document.getElementById('submit-number-btn'),
-    
+
     winnerText: document.getElementById('winner-text'),
     averageVal: document.getElementById('average-val'),
     targetVal: document.getElementById('target-val'),
@@ -92,9 +92,10 @@ function init() {
     UI.submitBtn.addEventListener('click', submitChoice);
     UI.nextRoundBtn.addEventListener('click', handleNextRoundRequest);
     UI.copyRoomBtn.addEventListener('click', copyInviteLink);
-    
+
     UI.startGameBtn.addEventListener('click', () => {
         if (state.isHost) {
+            clearInterval(state.instructionTimerInterval); // Stop the timer
             state.currentState = GameState.PLAYING;
             broadcast({ type: 'START_GAME' });
             switchScreen(GameState.PLAYING);
@@ -214,7 +215,7 @@ function handleData(data, fromPeerId) {
                 state.maxPlayers = data.state.maxPlayers;
                 state.currentState = data.state.currentState;
                 state.instructionTimer = data.state.instructionTimer;
-                
+
                 updateUI();
                 if (state.currentState !== oldState) {
                     switchScreen(state.currentState);
@@ -241,13 +242,13 @@ function handleData(data, fromPeerId) {
 function syncState() {
     if (!state.isHost) return;
     updateUI();
-    broadcast({ type: 'SYNC_STATE', state: { 
-        players: state.players, 
-        round: state.round, 
-        maxPlayers: state.maxPlayers, 
-        currentState: state.currentState,
-        instructionTimer: state.instructionTimer
-    }});
+    broadcast({ type: 'SYNC_STATE', state: {
+            players: state.players,
+            round: state.round,
+            maxPlayers: state.maxPlayers,
+            currentState: state.currentState,
+            instructionTimer: state.instructionTimer
+        }});
 }
 
 function broadcast(data) {
@@ -276,7 +277,7 @@ function setReady() {
     UI.readyBtn.textContent = state.me.ready ? 'LISTO ✓' : 'ESTOY LISTO';
     UI.readyBtn.classList.toggle('btn-primary', state.me.ready);
     UI.readyBtn.classList.toggle('btn-secondary', !state.me.ready);
-    
+
     if (state.isHost) {
         const p = state.players.find(p => p.id === state.me.id);
         if (p) p.ready = state.me.ready;
@@ -289,7 +290,7 @@ function setReady() {
 function updateUI() {
     UI.playerCount.textContent = state.players.length.toString();
     UI.maxPlayers.textContent = state.maxPlayers.toString();
-    
+
     UI.playersList.innerHTML = state.players.map(p => `
         <div class="player-card ${p.ready ? 'ready' : ''}">
             <span class="status-dot"></span>
@@ -309,6 +310,7 @@ function updateUI() {
         }
     }
 
+    // Control visibility and enabled state of startGameBtn
     UI.startGameBtn.style.display = state.isHost ? 'block' : 'none';
     UI.clientWaitMsg.classList.toggle('hidden', state.isHost);
 
@@ -327,30 +329,28 @@ function updateUI() {
 function getRulesHTML() {
     const aliveCount = state.players.filter(p => !p.isEliminated).length;
     let html = `
-        <h3>REGLAS FUNDAMENTALES</h3>
+        <h3>REGLAS DEL JUEGO</h3>
         <ul>
-            <li>Todos los concursantes empiezan con 10 vidas.</li>
-            <li>Los concursantes eligen un número entre 0 y 100.</li>
-            <li>El promedio de todos los números seleccionados se multiplica por 0.8.</li>
-            <li>La persona cuyo número sea el más cercano a ese resultado es el GANADOR.</li>
-            <li>Los jugadores restantes pierden un punto cada uno.</li>
-            <li><strong>ELIMINACIÓN:</strong> Al llegar a -10 puntos, el Agua Regia (王水) caerá sobre ti.</li>
+            <li><strong>REGLA BÁSICA:</strong> Cada jugador elige un número del 0 al 100. Se calcula el promedio de todos los números y se multiplica por 0.8. El jugador cuyo número esté más cerca de ese resultado gana la ronda. Los demás pierden 1 punto de vida.</li>
+            <li><strong>VIDAS:</strong> Todos empiezan con 10 puntos de vida. Al llegar a 0 (score = -10), el Agua Regia se derrama y el jugador es eliminado.</li>
         </ul>
     `;
 
+    // Regla de Invalidez (Activa con 4 o menos jugadores)
     if (aliveCount <= 4) {
         html += `
             <div style="border: 1px dashed var(--primary); padding: 10px; margin: 10px 0;">
-                <h3 style="color: var(--primary); margin-top: 0;">NUEVA REGLA (≤ 4 Jugadores)</h3>
-                <p>Si dos o más jugadores eligen el mismo número, dicho número deja de ser válido. Pierden un punto incluso si el número es el más cercano al promedio × 0.8.</p>
+                <h3 style="color: var(--primary); margin-top: 0;">⚠️ REGLA DE INVALIDEZ (Activa con 4 o menos jugadores)</h3>
+                <p>Si dos o más jugadores eligen el mismo número, ese número queda INVALIDADO. Los jugadores que lo eligieron pierden 1 punto aunque el número estuviera cerca del objetivo.</p>
             </div>
         `;
     }
+    // Acierto Exacto (Activa con 3 o menos jugadores)
     if (aliveCount <= 3) {
         html += `
             <div style="border: 1px dashed var(--primary); padding: 10px; margin: 10px 0;">
-                <h3 style="color: var(--primary); margin-top: 0;">NUEVA REGLA (≤ 3 Jugadores)</h3>
-                <p>Elegir el número exacto correcto hará que los otros jugadores pierdan dos puntos en lugar de uno.</p>
+                <h3 style="color: var(--primary); margin-top: 0;">⚠️ ACIERTO EXACTO (Activa con 3 o menos jugadores)</h3>
+                <p>Si el ganador acierta el número objetivo exactamente, todos los demás pierden 2 puntos en lugar de 1.</p>
                 <hr style="border: 0; border-top: 1px solid #444;">
                 <p style="font-size: 0.8rem; color: #aaa;">
                     <strong>Estrategia de Daimon:</strong> Con la regla de invalidez, la batalla es a tres bandas entre 0, 1 y 2-100. 
@@ -359,12 +359,12 @@ function getRulesHTML() {
             </div>
         `;
     }
+    // Duelo Final (Activa con 2 jugadores)
     if (aliveCount <= 2) {
         html += `
             <div style="border: 1px dashed var(--primary); padding: 10px; margin: 10px 0;">
-                <h3 style="color: var(--primary); margin-top: 0;">NUEVA REGLA (2 Jugadores)</h3>
-                <p>Si un jugador elige 0, el otro jugador puede ganar eligiendo 100.</p>
-                <p style="font-size: 0.8rem; color: #aaa;">El juego se convierte en piedra, papel o tijera: 0 vence a 1, 1 vence a 100, y 100 vence a 0.</p>
+                <h3 style="color: var(--primary); margin-top: 0;">⚠️ DUELO FINAL (Activa con 2 jugadores) — Piedra, Papel o Tijera</h3>
+                <p>0 vence a 1 · 1 vence a 100 · 100 vence a 0. Elige con sabiduría.</p>
             </div>
         `;
     }
@@ -377,16 +377,16 @@ function startInstructionTimer() {
         UI.ruleTimer.classList.add('hidden');
         return;
     }
-    
+
     state.instructionTimer = 300; // 5 minutes
     UI.ruleTimer.classList.remove('hidden');
-    
+
     state.instructionTimerInterval = setInterval(() => {
         state.instructionTimer--;
         const mins = Math.floor(state.instructionTimer / 60);
         const secs = state.instructionTimer % 60;
-        UI.ruleTimer.textContent = `TIEMPO PARA LEER: ${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        
+        UI.ruleTimer.textContent = `⏱ NUEVA REGLA — ${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
         if (state.instructionTimer <= 0) {
             clearInterval(state.instructionTimerInterval);
             if (state.isHost) {
@@ -440,10 +440,10 @@ function calculateRound() {
     const choices = activePlayers.map(p => p.choice);
     const avg = choices.reduce((a, b) => a + b, 0) / choices.length;
     const target = avg * 0.8;
-    
+
     let specialTrigger = "";
     let invalidPeers = new Set();
-    
+
     if (aliveCount <= 4) {
         const counts = {}; activePlayers.forEach(p => counts[p.choice] = (counts[p.choice] || 0) + 1);
         activePlayers.forEach(p => { if (counts[p.choice] > 1) invalidPeers.add(p.id); });
@@ -535,7 +535,7 @@ function startNextRound() {
     document.querySelectorAll('.number-btn').forEach(b => b.classList.remove('selected', 'disabled'));
     document.getElementById('waiting-opponent-game').classList.add('hidden');
     UI.nextRoundBtn.disabled = false; UI.nextRoundBtn.textContent = 'SIGUIENTE';
-    
+
     if (state.isHost) {
         if (state.ruleChanged) {
             state.currentState = GameState.INSTRUCTIONS;
@@ -556,7 +556,7 @@ function switchScreen(target) {
     if (UI.screens[screenKey]) {
         UI.screens[screenKey].classList.add('active');
     }
-    
+
     if (target === GameState.PLAYING) {
         UI.roundInfo.textContent = `RONDA ${state.round}`;
         state.ruleChanged = false;
@@ -568,8 +568,8 @@ function switchScreen(target) {
     }
 }
 
-function generateID() { 
-    return 'KOD-' + Math.random().toString(36).slice(2, 6).toUpperCase(); 
+function generateID() {
+    return 'KOD-' + Math.random().toString(36).slice(2, 6).toUpperCase();
 }
 
 function copyInviteLink() {
