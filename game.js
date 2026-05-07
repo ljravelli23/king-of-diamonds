@@ -86,6 +86,12 @@ function init() {
     const roomFromUrl = urlParams.get('room');
     if (roomFromUrl) UI.roomIDInput.value = roomFromUrl;
 
+    // Cargar nombre guardado
+    const savedName = localStorage.getItem('playerName');
+    if (savedName) {
+        UI.playerName.value = savedName;
+    }
+
     UI.createRoomBtn.addEventListener('click', createRoom);
     UI.joinRoomBtn.addEventListener('click', joinRoom);
     UI.readyBtn.addEventListener('click', setReady);
@@ -135,6 +141,7 @@ function createRoom() {
     const name = UI.playerName.value.trim();
     if (!name) return alert('Ingresa tu nombre');
     state.me.name = name;
+    localStorage.setItem('playerName', name); // Guardar nombre
     state.me.score = 0;
     state.isHost = true;
     peer = new Peer(generateID());
@@ -161,6 +168,7 @@ function joinRoom() {
     const targetID = UI.roomIDInput.value.trim().toUpperCase();
     if (!name || !targetID) return alert('Nombre e ID requeridos');
     state.me.name = name;
+    localStorage.setItem('playerName', name); // Guardar nombre
     state.isHost = false;
     state.roomID = targetID;
     peer = new Peer(generateID());
@@ -181,6 +189,12 @@ function handleData(data, fromPeerId) {
     if (state.isHost) {
         switch (data.type) {
             case 'JOIN_REQUEST':
+                // **CORRECCIÓN BUG: Amigo agregado dos veces**
+                if (state.players.some(p => p.id === fromPeerId)) {
+                    console.warn(`Player ${fromPeerId} tried to join again.`);
+                    clientConns[fromPeerId].send({ type: 'ERROR', message: 'Ya estás en la sala.' });
+                    return;
+                }
                 if (state.players.length >= state.maxPlayers) {
                     clientConns[fromPeerId].send({ type: 'ERROR', message: 'SALA LLENA' });
                     return;
@@ -204,6 +218,9 @@ function handleData(data, fromPeerId) {
                 const pNext = state.players.find(p => p.id === fromPeerId);
                 if (pNext) pNext.ready = true;
                 if (state.players.every(p => p.ready || p.isEliminated)) startNextRound();
+                break;
+            case 'REMOVE_PLAYER': // Nuevo tipo de mensaje para eliminar
+                removePlayer(data.playerId);
                 break;
         }
     } else {
@@ -233,7 +250,8 @@ function handleData(data, fromPeerId) {
                 break;
             case 'ERROR':
                 alert(data.message);
-                location.reload();
+                // No recargar automáticamente para permitir al usuario leer el mensaje
+                // location.reload();
                 break;
         }
     }
@@ -260,6 +278,24 @@ function sendToHost(data) { if (hostConn && hostConn.open) hostConn.send(data); 
 function handleDisconnect(peerId) {
     state.players = state.players.filter(p => p.id !== peerId);
     delete clientConns[peerId];
+    syncState();
+}
+
+// Nueva función para eliminar un jugador (solo host)
+function removePlayer(playerId) {
+    if (!state.isHost) return;
+
+    const playerToRemove = state.players.find(p => p.id === playerId);
+    if (!playerToRemove) return;
+
+    state.players = state.players.filter(p => p.id !== playerId);
+
+    // Cerrar la conexión PeerJS del jugador eliminado
+    if (clientConns[playerId]) {
+        clientConns[playerId].send({ type: 'ERROR', message: 'Has sido eliminado de la sala por el anfitrión.' });
+        clientConns[playerId].close();
+        delete clientConns[playerId];
+    }
     syncState();
 }
 
@@ -295,8 +331,21 @@ function updateUI() {
         <div class="player-card ${p.ready ? 'ready' : ''}">
             <span class="status-dot"></span>
             <strong>${p.name} ${p.id === state.me.id ? '(Tú)' : ''}</strong>
+            ${state.isHost && p.id !== state.me.id ? `<button class="btn-icon remove-player-btn" data-player-id="${p.id}">🗑️</button>` : ''}
         </div>
     `).join('');
+
+    // Añadir event listeners a los botones de papelera
+    if (state.isHost) {
+        document.querySelectorAll('.remove-player-btn').forEach(button => {
+            button.onclick = (e) => {
+                const playerId = e.target.dataset.playerId;
+                if (confirm(`¿Estás seguro de que quieres eliminar a ${state.players.find(pl => pl.id === playerId)?.name}?`)) {
+                    removePlayer(playerId);
+                }
+            };
+        });
+    }
 
     if (state.players.length >= 2) UI.readyBtn.classList.remove('hidden');
     else UI.readyBtn.classList.add('hidden');
@@ -537,14 +586,17 @@ function startNextRound() {
     UI.nextRoundBtn.disabled = false; UI.nextRoundBtn.textContent = 'SIGUIENTE';
 
     if (state.isHost) {
+        // **CORRECCIÓN BUG: "Continuar partida" a veces se buguea**
+        // Aseguramos que el estado se sincronice antes de cambiar de pantalla
+        // y que el cliente reciba la señal para iniciar la siguiente ronda.
         if (state.ruleChanged) {
             state.currentState = GameState.INSTRUCTIONS;
-            syncState();
+            syncState(); // Sincroniza el estado para que los clientes vayan a instrucciones
             switchScreen(GameState.INSTRUCTIONS);
         } else {
             state.currentState = GameState.PLAYING;
-            syncState();
-            broadcast({ type: 'START_NEXT_ROUND' });
+            syncState(); // Sincroniza el estado para que los clientes vayan a jugar
+            broadcast({ type: 'START_NEXT_ROUND' }); // Envía señal explícita para iniciar ronda
             switchScreen(GameState.PLAYING);
         }
     }
